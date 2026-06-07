@@ -1,0 +1,26 @@
+# -------------------------------------------------
+# Auto-detect text files and normalize line endings
+# -------------------------------------------------
+* text=auto
+
+# -------------------------------------------------
+# Arduino source files (C++ with LF line endings)
+# -------------------------------------------------
+*.ino text eol=lf
+*.cpp text eol=lf
+*.h   text eol=lf
+*.hpp text eol=lf
+
+# -------------------------------------------------
+# Markdown, YAML, etc.
+# -------------------------------------------------
+*.md  text eol=lf
+*.yml text eol=lf
+
+# -------------------------------------------------
+# Binary files (do not modify line endings)
+# -------------------------------------------------
+*.hex binary
+*.bin binary
+*.png binary
+*.jpg binary

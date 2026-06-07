@@ -1,0 +1,96 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.ino'
+      - '.github/workflows/main.yaml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Arduino CLI
+        run: |
+          curl -fsSL https://downloads.arduino.cc/arduino-cli/arduino-cli_0.35.3_Linux_64bit.tar.gz -o arduino-cli.tar.gz
+          tar -xzf arduino-cli.tar.gz
+          sudo mv arduino-cli /usr/local/bin/
+          arduino-cli version
+
+      - name: Setup Arduino CLI and install dependencies
+        run: |
+          arduino-cli config init
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+          arduino-cli lib install "Adafruit GFX Library"
+          arduino-cli lib install "Adafruit SSD1306"
+
+      - name: Find sketch
+        id: sketch
+        run: |
+          SKETCH=$(find . -maxdepth 2 -name "*.ino" | head -1)
+          if [ -z "$SKETCH" ]; then
+            echo "No .ino file found!"
+            exit 1
+          fi
+          echo "SKETCH=$SKETCH" >> $GITHUB_OUTPUT
+          echo "Sketch: $SKETCH"
+
+      - name: Extract firmware version from sketch
+        id: fw_version
+        run: |
+          # Look for line like: #define FIRMWARE_VERSION "2.0.0"
+          VERSION=$(grep -oP '#define\s+FIRMWARE_VERSION\s+"\K[^"]+' ${{ steps.sketch.outputs.SKETCH }} || echo "unknown")
+          echo "FIRMWARE=$VERSION" >> $GITHUB_OUTPUT
+          echo "Firmware version: $VERSION"
+
+      - name: Compile sketch
+        run: |
+          arduino-cli compile \
+            --fqbn arduino:avr:nano \
+            --output-dir build \
+            ${{ steps.sketch.outputs.SKETCH }}
+
+      - name: List build output
+        run: ls -la build/
+
+      - name: Prepare release name and files
+        run: |
+          # Build tag and name: v2.0.0-b79dc41
+          SHORT_HASH=${GITHUB_SHA:0:7}
+          FW_VERSION=${{ steps.fw_version.outputs.FIRMWARE }}
+          RELEASE_TAG="${FW_VERSION}-${SHORT_HASH}"
+          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
+          echo "Release tag: $RELEASE_TAG"
+
+          mkdir release
+          HEXFILE=$(find build -name "*.hex" | head -1)
+          if [ -z "$HEXFILE" ]; then
+            echo "Hex file not found!"
+            exit 1
+          fi
+          cp "$HEXFILE" "release/INA226Monitor-${RELEASE_TAG}.hex"
+          cp ${{ steps.sketch.outputs.SKETCH }} release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          name: "INA226 Power Monitor ${{ env.RELEASE_TAG }}"
+          body: |
+            Firmware version: **${{ steps.fw_version.outputs.FIRMWARE }}**
+            Build commit: `${{ github.sha }}`
+            Flash the `.hex` file using Arduino IDE or AVRDUDE.
+          draft: false
+          prerelease: true
+          tag_name: ${{ env.RELEASE_TAG }}
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,23 @@
+# -------------------------------------------------
+# Arduino & IDE
+# -------------------------------------------------
+# Compiled output
+build/
+*.hex
+*.elf
+*.eep
+*.bin
+
+# Arduino IDE specific
+*.ino.with_bootloader*
+.vscode/
+.idea/
+
+# -------------------------------------------------
+# OS generated files
+# -------------------------------------------------
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
